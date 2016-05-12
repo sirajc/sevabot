@@ -157,7 +157,7 @@ class GitHubPostCommit(SendMessage):
             msg += u"(*) %s: %s\n%s\n" % (c["author"]["name"], c["message"], c["url"])
 
         return msg
-		
+
 class GitHubPullRequest(SendMessage):
     """
     Handle post-commit hook from Github.
@@ -168,7 +168,7 @@ class GitHubPullRequest(SendMessage):
     def compose(self):
 
         payload = json.loads(request.form["payload"])
-        
+
         if payload["action"] == "opened":
             msg = u"(*) %s new pull request %s from %s - %s\n" % (payload["repository"]["name"], payload["number"], payload["pull_request"]["user"]["login"], payload["pull_request"]["html_url"])
         elif payload["action"] == "closed":
@@ -176,6 +176,38 @@ class GitHubPullRequest(SendMessage):
         else:
             msg = u""
         return msg
+
+class GitLabMergeRequest(SendMessage):
+    """
+    Handle merge request hook from Gitlab.
+
+    https://gitlab.com/help/web_hooks/web_hooks
+    """
+
+    def compose(self):
+
+        payload = json.loads(request.form["payload"])
+        mrFrom = payload["user"]["name"]
+        payload = payload["object_attributes"]
+
+        mrTo = "xxxx"
+        if "assignee" in payload and len(payload["assignee"]) > 0:
+            mrTo = payload["assignee"]["name"]
+
+        msg = " (*) *%s* : Merge Request *%s* _%s_ by *%s*" % (payload["target"]["name"], payload["title"], payload["state"], mrFrom)
+
+        if mrTo != "xxxx":
+            msg = msg + ", assigned to *%s*" % (mrTo)
+
+        msg = msg + "\nBranch: _%s_ -> _%s_)\n" % (payload["source_branch"], payload["target_branch"])
+
+        if len(payload["description"]) > 0:
+            msg = msg + "Description: %s \n" % (payload["description"])
+
+        msg = msg + "View: %s" % (payload["url"])
+
+        return msg
+
 
 class JenkinsNotifier(SendMessage):
 
@@ -245,3 +277,5 @@ def configure(sevabot, settings, server):
 
     server.add_url_rule('/teamcity/<string:chat_id>/<string:shared_secret>/', view_func=TeamcityWebHook.as_view(str('send_message_teamcity'), sevabot=sevabot, shared_secret=settings.SHARED_SECRET))
 
+    # rule for notifying on gitlab merge requests
+    server.add_url_rule('/gitlab-merge-request/<string:chat_id>/<string:shared_secret>/', view_func=GitLabMergeRequest.as_view(str('send_message_gitlab_1'), sevabot=sevabot, shared_secret=settings.SHARED_SECRET))
