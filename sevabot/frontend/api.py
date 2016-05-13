@@ -186,26 +186,30 @@ class GitLabMergeRequest(SendMessage):
 
     def compose(self):
 
-        payload = json.loads(request.form["payload"])
-        mrFrom = payload["user"]["name"]
-        payload = payload["object_attributes"]
+        payload = request.json
+        """
+        logger.debug("Payload ---- \n%s" % (json.dumps(payload, indent=4, separators=(',', ': '))))
+        """
+        if payload["object_kind"] == "push":
+            return "(tubelight)"
 
+        mrFrom = payload["user"]["name"]
         mrTo = "xxxx"
         if "assignee" in payload and len(payload["assignee"]) > 0:
             mrTo = payload["assignee"]["name"]
 
-        msg = " (*) *%s* : Merge Request *%s* _%s_ by *%s*" % (payload["target"]["name"], payload["title"], payload["state"], mrFrom)
+        payload = payload["object_attributes"]
+        msg = " (bell) %s : Merge Request \"%s\" %s by %s" % (payload["target"]["name"].upper(), payload["title"], payload["state"], mrFrom)
 
         if mrTo != "xxxx":
-            msg = msg + ", assigned to *%s*" % (mrTo)
+            msg = msg + ", assigned to %s" % (mrTo)
 
-        msg = msg + "\nBranch: _%s_ -> _%s_)\n" % (payload["source_branch"], payload["target_branch"])
+        msg = msg + "\nBranch: %s -> %s\n" % (payload["source_branch"], payload["target_branch"])
 
         if len(payload["description"]) > 0:
             msg = msg + "Description: %s \n" % (payload["description"])
 
-        msg = msg + "View: %s" % (payload["url"])
-
+        msg = msg + "%s" % (payload["url"])
         return msg
 
 
